@@ -62,9 +62,9 @@ namespace InTouch
         private long _downTick;
 
         // Thresholds (normalized 0–1 coordinates for opaque tablets)
-        public float TapMaxDist { get; set; } = 0.015f;   // max movement to still count as tap
-        public int TapMaxMs { get; set; } = 300;           // max duration for a tap (ms)
-        public float DragThreshold { get; set; } = 0.008f; // movement to enter drag mode
+        public float TapMaxDist { get; set; } = 0.025f;   // max movement to still count as tap (~5mm)
+        public int TapMaxMs { get; set; } = 500;           // max duration for a tap (ms)
+        public float DragThreshold { get; set; } = 0.04f;  // movement to enter drag mode (~9mm)
 
         public TouchMode Mode { get; set; } = TouchMode.MoveTapDrag;
 
@@ -129,6 +129,11 @@ namespace InTouch
                 // (0x6205) messages to the specified window handle. Unlike HitRect
                 // callback registration, HWND delivery works regardless of which
                 // window has foreground focus.
+                //
+                // Observer mode: the Wacom driver still generates its own mouse
+                // events from touch (LEFTDOWN on contact, LEFTUP on release).
+                // Our InjectClick cancels the driver's press before doing a
+                // clean click sequence.
                 _fingerClient = new CWacomMTFingerClient(WacomMTProcessingMode.WMTProcessingModeObserver);
                 _fingerClient.RegisterHWNDClient(deviceId, _hwnd, bufferDepth_I: 1);
 
@@ -188,8 +193,14 @@ namespace InTouch
                         case WacomMTFingerState.WMTFingerStateDown:
                             if (_state == TouchState.Idle)
                             {
-                                // First finger down — claim it for the state machine
-                                InjectMove(absX, absY);
+                                // First finger down — claim it, but don't move cursor yet.
+                                // Cursor moves only when we commit (tap click or drag start)
+                                // to avoid micro-moves that apps interpret as drag.
+                                //
+                                // The Wacom driver (Observer mode) already injected a
+                                // LEFTDOWN into the input queue before this callback.
+                                // Cancel it immediately so apps don't start a selection.
+                                CancelDriverPress();
                                 _state = TouchState.Pending;
                                 _activeFingerId = finger.FingerID;
                                 _downRawX = finger.X;
@@ -206,7 +217,7 @@ namespace InTouch
                                 // Finger already in contact but not tracked (e.g. after the
                                 // active finger released, or SDK missed the Down event,
                                 // or Confidence toggled false→true mid-touch). Adopt it.
-                                InjectMove(absX, absY);
+                                CancelDriverPress();
                                 _state = TouchState.Pending;
                                 _activeFingerId = finger.FingerID;
                                 _downRawX = finger.X;
@@ -217,6 +228,9 @@ namespace InTouch
                             else if (_state == TouchState.Pending && isActive)
                             {
                                 float dist = RawDistance(finger.X, finger.Y, _downRawX, _downRawY);
+                                // Only enter drag when movement is clearly intentional
+                                // (well beyond tap jitter). DragThreshold is large enough
+                                // that normal tap jitter never triggers it.
                                 if (Mode == TouchMode.MoveTapDrag && dist >= DragThreshold)
                                 {
                                     var (startSx, startSy) = ToScreen(_downRawX, _downRawY, _isDisplayTablet);
@@ -226,10 +240,7 @@ namespace InTouch
                                     _state = TouchState.Dragging;
                                     Log.Info($"DRAG fid={finger.FingerID} dist={dist:F4} → Dragging");
                                 }
-                                else
-                                {
-                                    InjectMove(absX, absY);
-                                }
+                                // else: movement below drag threshold, don't move cursor
                             }
                             else if (_state == TouchState.Dragging && isActive)
                             {
@@ -246,10 +257,15 @@ namespace InTouch
                                 if (_state == TouchState.Pending)
                                 {
                                     float dist = RawDistance(finger.X, finger.Y, _downRawX, _downRawY);
-                                    InjectMove(absX, absY);
-                                    if (Mode != TouchMode.MoveOnly && elapsed <= TapMaxMs && dist < TapMaxDist)
+                                    // Tap = small movement. Time is secondary — a slow
+                                    // tap with little movement is still a tap.
+                                    if (Mode != TouchMode.MoveOnly && dist < TapMaxDist)
                                     {
-                                        InjectClick(absX, absY);
+                                        // Click at the DOWN position for a clean tap —
+                                        // no intermediate moves, just teleport + click.
+                                        var (downSx, downSy) = ToScreen(_downRawX, _downRawY, _isDisplayTablet);
+                                        var (downAbsX, downAbsY) = ToAbsolute(downSx, downSy);
+                                        InjectClick(downAbsX, downAbsY);
                                         Log.Info($"TAP  fid={finger.FingerID} elapsed={elapsed}ms dist={dist:F4}");
                                         TouchDataReceived?.Invoke(new TouchEventData(sx, sy, TouchEventKind.Tap, finger.FingerID, finger.X, finger.Y));
                                     }
@@ -352,22 +368,48 @@ namespace InTouch
             NativeMethods.SendInput(1, input, Marshal.SizeOf<NativeMethods.INPUT>());
         }
 
+        /// <summary>
+        /// Send a LEFTUP to cancel the Wacom driver's LEFTDOWN.
+        /// In Observer mode the driver injects its own mouse press on touch-down;
+        /// we must cancel it immediately so apps don't interpret it as a drag.
+        /// Harmless if the button is already up.
+        /// </summary>
+        private static void CancelDriverPress()
+        {
+            var input = new NativeMethods.INPUT[1];
+            input[0].type = NativeMethods.INPUT_MOUSE;
+            input[0].mi.dwFlags = NativeMethods.MOUSEEVENTF_LEFTUP;
+            NativeMethods.SendInput(1, input, Marshal.SizeOf<NativeMethods.INPUT>());
+        }
+
         private static void InjectClick(int absX, int absY)
         {
-            var inputs = new NativeMethods.INPUT[2];
-            inputs[0].type = NativeMethods.INPUT_MOUSE;
-            inputs[0].mi.dx = absX;
-            inputs[0].mi.dy = absY;
-            inputs[0].mi.dwFlags = NativeMethods.MOUSEEVENTF_ABSOLUTE
-                                 | NativeMethods.MOUSEEVENTF_MOVE
-                                 | NativeMethods.MOUSEEVENTF_LEFTDOWN;
-            inputs[1].type = NativeMethods.INPUT_MOUSE;
-            inputs[1].mi.dx = absX;
-            inputs[1].mi.dy = absY;
-            inputs[1].mi.dwFlags = NativeMethods.MOUSEEVENTF_ABSOLUTE
-                                 | NativeMethods.MOUSEEVENTF_MOVE
-                                 | NativeMethods.MOUSEEVENTF_LEFTUP;
-            NativeMethods.SendInput(2, inputs, Marshal.SizeOf<NativeMethods.INPUT>());
+            int size = Marshal.SizeOf<NativeMethods.INPUT>();
+
+            // Cancel any driver-injected LEFTDOWN that may still be held.
+            var cancel = new NativeMethods.INPUT[1];
+            cancel[0].type = NativeMethods.INPUT_MOUSE;
+            cancel[0].mi.dwFlags = NativeMethods.MOUSEEVENTF_LEFTUP;
+            NativeMethods.SendInput(1, cancel, size);
+
+            // LEFTDOWN + LEFTUP both at the EXACT same absolute position,
+            // in one atomic SendInput call. No separate MOVE step — the
+            // position is baked into each button event so there's zero
+            // chance of coordinate mismatch.
+            var click = new NativeMethods.INPUT[2];
+            click[0].type = NativeMethods.INPUT_MOUSE;
+            click[0].mi.dx = absX;
+            click[0].mi.dy = absY;
+            click[0].mi.dwFlags = NativeMethods.MOUSEEVENTF_ABSOLUTE
+                                | NativeMethods.MOUSEEVENTF_MOVE
+                                | NativeMethods.MOUSEEVENTF_LEFTDOWN;
+            click[1].type = NativeMethods.INPUT_MOUSE;
+            click[1].mi.dx = absX;
+            click[1].mi.dy = absY;
+            click[1].mi.dwFlags = NativeMethods.MOUSEEVENTF_ABSOLUTE
+                                | NativeMethods.MOUSEEVENTF_MOVE
+                                | NativeMethods.MOUSEEVENTF_LEFTUP;
+            NativeMethods.SendInput(2, click, size);
         }
 
         public void Dispose()

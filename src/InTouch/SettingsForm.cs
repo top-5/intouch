@@ -272,9 +272,9 @@ namespace InTouch
             int dragPct = (int)(_remapper.DragThreshold * 1000);
             _dragThresholdSlider = new TrackBar
             {
-                Minimum = 1, Maximum = 50,
-                Value = Math.Clamp(dragPct, 1, 50),
-                TickFrequency = 5, SmallChange = 1, LargeChange = 5,
+                Minimum = 5, Maximum = 100,
+                Value = Math.Clamp(dragPct, 5, 100),
+                TickFrequency = 10, SmallChange = 1, LargeChange = 10,
                 Location = new Point(pad + lw, y),
                 Size = new Size(sw, 45),
                 BackColor = Color.FromArgb(24, 24, 24)
