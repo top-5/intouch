@@ -8,6 +8,13 @@ namespace InTouch
 {
     internal enum TouchEventKind { Down, Move, Up, Tap }
 
+    internal enum TouchMode
+    {
+        MoveTapDrag,   // cursor + tap + drag (default)
+        MoveTap,       // cursor + tap only (no drag)
+        MoveOnly       // cursor only (no tap, no drag)
+    }
+
     internal readonly record struct TouchEventData(
         int ScreenX, int ScreenY,
         TouchEventKind Kind,
@@ -58,6 +65,8 @@ namespace InTouch
         public float TapMaxDist { get; set; } = 0.015f;   // max movement to still count as tap
         public int TapMaxMs { get; set; } = 300;           // max duration for a tap (ms)
         public float DragThreshold { get; set; } = 0.008f; // movement to enter drag mode
+
+        public TouchMode Mode { get; set; } = TouchMode.MoveTapDrag;
 
         /// <summary>When false, callbacks do nothing (passthrough).</summary>
         public bool Enabled { get; set; } = true;
@@ -208,7 +217,7 @@ namespace InTouch
                             else if (_state == TouchState.Pending && isActive)
                             {
                                 float dist = RawDistance(finger.X, finger.Y, _downRawX, _downRawY);
-                                if (dist >= DragThreshold)
+                                if (Mode == TouchMode.MoveTapDrag && dist >= DragThreshold)
                                 {
                                     var (startSx, startSy) = ToScreen(_downRawX, _downRawY, _isDisplayTablet);
                                     var (startAbsX, startAbsY) = ToAbsolute(startSx, startSy);
@@ -238,7 +247,7 @@ namespace InTouch
                                 {
                                     float dist = RawDistance(finger.X, finger.Y, _downRawX, _downRawY);
                                     InjectMove(absX, absY);
-                                    if (elapsed <= TapMaxMs && dist < TapMaxDist)
+                                    if (Mode != TouchMode.MoveOnly && elapsed <= TapMaxMs && dist < TapMaxDist)
                                     {
                                         InjectClick(absX, absY);
                                         Log.Info($"TAP  fid={finger.FingerID} elapsed={elapsed}ms dist={dist:F4}");

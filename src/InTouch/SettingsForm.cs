@@ -147,7 +147,7 @@ namespace InTouch
         private Panel BuildSettingsPanel(TouchRemapper remapper, string deviceName, bool showRipple, int screenW, int screenH)
         {
             int panelW = Math.Min(700, screenW - 100);
-            int panelH = 420;
+            int panelH = 490;
 
             var panel = new Panel
             {
@@ -197,9 +197,35 @@ namespace InTouch
             };
             closeSettings.FlatAppearance.BorderSize = 0;
             closeSettings.FlatAppearance.MouseOverBackColor = Color.FromArgb(196, 43, 28);
-            closeSettings.Click += (_, _) => panel.Visible = false;
+            closeSettings.Click += (_, _) => { panel.Visible = false; _canvas.OverlayVisible = false; };
 
             y += 52;
+
+            // ── Touch Mode ──────────────────────────────────────────
+            var modeLbl = new Label
+            {
+                Text = "Touch mode:",
+                ForeColor = Color.FromArgb(200, 200, 200),
+                Font = lf,
+                Location = new Point(pad, y + 8),
+                Size = new Size(lw, 24)
+            };
+            var modeCombo = new ComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                BackColor = Color.FromArgb(40, 40, 40),
+                ForeColor = Color.FromArgb(200, 200, 200),
+                Font = lf,
+                Location = new Point(pad + lw, y + 4),
+                Size = new Size(sw + vw + 12, 30)
+            };
+            modeCombo.Items.AddRange(new[] { "Move + Tap + Drag", "Move + Tap", "Move only" });
+            modeCombo.SelectedIndex = (int)remapper.Mode;
+            modeCombo.SelectedIndexChanged += (_, _) =>
+            {
+                remapper.Mode = (TouchMode)modeCombo.SelectedIndex;
+            };
+            y += rowH;
 
             // ── Tap Duration ────────────────────────────────────────
             var tapLbl = new Label
@@ -302,6 +328,7 @@ namespace InTouch
             panel.Controls.AddRange(new Control[]
             {
                 hdr, closeSettings,
+                modeLbl, modeCombo,
                 tapLbl, _tapDurationSlider, _tapDurationValue,
                 dragLbl, _dragThresholdSlider, _dragThresholdValue,
                 _showRippleCheck,
