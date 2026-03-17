@@ -1,0 +1,15 @@
+[submodule "external/sdk-for-multi-display"]
+	path = external/sdk-for-multi-display
+	url = https://github.com/Wacom-Developer/sdk-for-multi-display
+[submodule "external/signature-sdk-js"]
+	path = external/signature-sdk-js
+	url = https://github.com/Wacom-Developer/signature-sdk-js
+[submodule "external/wacom-device-kit-windows"]
+	path = external/wacom-device-kit-windows
+	url = https://github.com/Wacom-Developer/wacom-device-kit-windows
+[submodule "external/wacom-device-kit-web"]
+	path = external/wacom-device-kit-web
+	url = https://github.com/Wacom-Developer/wacom-device-kit-web
+[submodule "external/sdk-for-devices-win-classic"]
+	path = external/sdk-for-devices-win-classic
+	url = https://github.com/Wacom-Developer/sdk-for-devices-win-classic

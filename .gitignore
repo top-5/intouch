@@ -1,0 +1,10 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+publish/
+
+# Build artifacts (keep the directory via .gitkeep)
+artifacts/*
+!artifacts/.gitkeep

@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>InTouch</RootNamespace>
+    <AssemblyName>InTouch</AssemblyName>
+    <Nullable>enable</Nullable>
+    <NoWarn>CS8600;CS8603;CS8605;CS8625;CS8765;CA2200</NoWarn>
+
+    <!-- Version: set via -p:Version=x.y.z at build time; defaults below -->
+    <Version>0.1.0</Version>
+    <AssemblyTitle>InTouch — Wacom touch-to-cursor remapper</AssemblyTitle>
+    <Company>InTouch</Company>
+    <Product>InTouch</Product>
+    <Description>Absolute touch-to-cursor remapper for Wacom tablets</Description>
+    <Copyright>MIT License</Copyright>
+    <ApplicationIcon Condition="Exists('app.ico')">app.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Management" Version="8.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\external\wacom-device-kit-windows\Multi-Touch Windows .NET\SampleCode\WacomMTDN\CMemUtils.cs" Link="WacomMTDN\CMemUtils.cs" />
+    <Compile Include="..\..\external\wacom-device-kit-windows\Multi-Touch Windows .NET\SampleCode\WacomMTDN\CWacomMTClient.cs" Link="WacomMTDN\CWacomMTClient.cs" />
+    <Compile Include="..\..\external\wacom-device-kit-windows\Multi-Touch Windows .NET\SampleCode\WacomMTDN\CWacomMTConfig.cs" Link="WacomMTDN\CWacomMTConfig.cs" />
+    <Compile Include="..\..\external\wacom-device-kit-windows\Multi-Touch Windows .NET\SampleCode\WacomMTDN\CWacomMTData.cs" Link="WacomMTDN\CWacomMTData.cs" />
+    <Compile Include="..\..\external\wacom-device-kit-windows\Multi-Touch Windows .NET\SampleCode\WacomMTDN\CWacomMTInterface.cs" Link="WacomMTDN\CWacomMTInterface.cs" />
+  </ItemGroup>
+
+</Project>

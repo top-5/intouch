@@ -1,0 +1,109 @@
+name: Build & Package
+
+on:
+  push:
+    tags: ['v*']
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g. 0.1.0). Leave blank to auto-derive from latest tag.'
+        required: false
+        default: ''
+
+permissions:
+  contents: write          # needed for creating releases
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        arch: [x64, arm64]
+
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0        # need full history for tag-based version detection
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Install NSIS
+        run: choco install nsis -y --no-progress
+
+      - name: Determine version
+        id: version
+        shell: pwsh
+        run: |
+          $v = '${{ inputs.version }}'.Trim()
+          # 1. Explicit input wins
+          if ($v) {
+              Write-Host "Using input version: $v"
+          }
+          # 2. Tag push: strip leading 'v'
+          elseif ('${{ github.ref_type }}' -eq 'tag') {
+              $v = '${{ github.ref_name }}' -replace '^v', ''
+              Write-Host "Using tag version: $v"
+          }
+          # 3. Auto-increment: find latest vX.Y.Z tag, bump patch
+          else {
+              $tags = & git tag -l 'v*' --sort=-version:refname 2>$null
+              if ($tags) {
+                  $latest = ($tags | Select-Object -First 1) -replace '^v', ''
+                  $parts = $latest -split '\.'
+                  $parts[2] = [int]$parts[2] + 1
+                  $v = $parts -join '.'
+                  Write-Host "Auto-incremented from v$latest to $v"
+              } else {
+                  $v = '0.1.0'
+                  Write-Host "No tags found, using default: $v"
+              }
+          }
+          "version=$v" | Out-File $env:GITHUB_OUTPUT -Append
+          Write-Host "Final version: $v"
+
+      - name: Build & package
+        shell: pwsh
+        run: .\package\build.ps1 -Arch ${{ matrix.arch }} -Version ${{ steps.version.outputs.version }}
+
+      - name: Run tests
+        if: matrix.arch == 'x64'
+        run: dotnet test tests/InTouch.Tests/InTouch.Tests.csproj -c Release --no-restore
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.arch }}
+          path: artifacts/installer/*.exe
+
+      - name: Upload standalone exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: standalone-${{ matrix.arch }}
+          path: artifacts/publish/${{ matrix.arch }}/InTouch.exe
+
+  # ------------------------------------------------------------------
+  # Release job — only when triggered by a version tag (v*)
+  # ------------------------------------------------------------------
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-files
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-files/*.exe
+          generate_release_notes: true

@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>InTouch.Tests</RootNamespace>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <NoWarn>CS8600;CS8602;CS8603;CS8605;CS8618;CS8622;CS8625;CS8765;CA2200</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.*" />
+    <PackageReference Include="xunit" Version="2.*" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.*" />
+  </ItemGroup>
+
+  <!-- WacomMTDN sources (Multi-Touch API) -->
+  <ItemGroup>
+    <Compile Include="..\..\external\wacom-device-kit-windows\Multi-Touch Windows .NET\SampleCode\WacomMTDN\CMemUtils.cs" Link="WacomMTDN\CMemUtils.cs" />
+    <Compile Include="..\..\external\wacom-device-kit-windows\Multi-Touch Windows .NET\SampleCode\WacomMTDN\CWacomMTClient.cs" Link="WacomMTDN\CWacomMTClient.cs" />
+    <Compile Include="..\..\external\wacom-device-kit-windows\Multi-Touch Windows .NET\SampleCode\WacomMTDN\CWacomMTConfig.cs" Link="WacomMTDN\CWacomMTConfig.cs" />
+    <Compile Include="..\..\external\wacom-device-kit-windows\Multi-Touch Windows .NET\SampleCode\WacomMTDN\CWacomMTData.cs" Link="WacomMTDN\CWacomMTData.cs" />
+    <Compile Include="..\..\external\wacom-device-kit-windows\Multi-Touch Windows .NET\SampleCode\WacomMTDN\CWacomMTInterface.cs" Link="WacomMTDN\CWacomMTInterface.cs" />
+  </ItemGroup>
+
+  <!-- WintabDN sources (Wintab API — device name, etc.) -->
+  <ItemGroup>
+    <Compile Include="..\..\external\wacom-device-kit-windows\Wintab .NET\SampleCode\WintabDN\CWintabInfo.cs" Link="WintabDN\CWintabInfo.cs" />
+    <Compile Include="..\..\external\wacom-device-kit-windows\Wintab .NET\SampleCode\WintabDN\CWintabFuncs.cs" Link="WintabDN\CWintabFuncs.cs" />
+    <Compile Include="..\..\external\wacom-device-kit-windows\Wintab .NET\SampleCode\WintabDN\CWintabData.cs" Link="WintabDN\CWintabData.cs" />
+    <Compile Include="..\..\external\wacom-device-kit-windows\Wintab .NET\SampleCode\WintabDN\CWintabContext.cs" Link="WintabDN\CWintabContext.cs" />
+    <Compile Include="..\..\external\wacom-device-kit-windows\Wintab .NET\SampleCode\WintabDN\CWintabExtensions.cs" Link="WintabDN\CWintabExtensions.cs" />
+    <Compile Include="..\..\external\wacom-device-kit-windows\Wintab .NET\SampleCode\WintabDN\CMemUtils.cs" Link="WintabDN\CMemUtils.cs" />
+    <Compile Include="..\..\external\wacom-device-kit-windows\Wintab .NET\SampleCode\WintabDN\MessageEvents.cs" Link="WintabDN\MessageEvents.cs" />
+  </ItemGroup>
+
+</Project>
