@@ -41,6 +41,7 @@ namespace InTouch
             TopMost = true;
             ShowInTaskbar = true;
             KeyPreview = true;
+            DoubleBuffered = true;
 
             var screen = Screen.PrimaryScreen!.Bounds;
             Bounds = screen;
@@ -65,12 +66,14 @@ namespace InTouch
             logFolderBtn.Click += (_, _) =>
             {
                 string? dir = Path.GetDirectoryName(Log.LogFilePath);
+                Close();
                 if (dir != null && Directory.Exists(dir))
                     Process.Start(new ProcessStartInfo("explorer.exe", dir) { UseShellExecute = true });
             };
 
-            var closeBtn = MakeFloatingButton("\u2715 Close", btnFont, btnBg, Color.FromArgb(255, 100, 100));
-            closeBtn.Location = new Point(logFolderBtn.Right + 6, 12);
+            var closeBtn = MakeFloatingButton("\u2715", btnFont, btnBg, Color.FromArgb(255, 100, 100));
+            closeBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            closeBtn.Location = new Point(W - closeBtn.Width - 12, 12);
             closeBtn.Click += (_, _) => Close();
 
             var deviceLbl = new Label
@@ -80,7 +83,7 @@ namespace InTouch
                 BackColor = Color.Transparent,
                 Font = new Font("Segoe UI", 9f),
                 AutoSize = true,
-                Location = new Point(closeBtn.Right + 16, 16)
+                Location = new Point(logFolderBtn.Right + 16, 16)
             };
 
             _canvas.Controls.Add(settingsBtn);
@@ -99,7 +102,10 @@ namespace InTouch
                 if (ke.KeyCode == Keys.Escape)
                 {
                     if (_settingsOverlay.Visible)
+                    {
                         _settingsOverlay.Visible = false;
+                        _canvas.OverlayVisible = false;
+                    }
                     else
                         Close();
                 }
@@ -114,6 +120,7 @@ namespace InTouch
             _settingsOverlay.Visible = !_settingsOverlay.Visible;
             if (_settingsOverlay.Visible)
                 _settingsOverlay.BringToFront();
+            _canvas.OverlayVisible = _settingsOverlay.Visible;
         }
 
         private static Button MakeFloatingButton(string text, Font font, Color bg, Color fg)
@@ -128,8 +135,8 @@ namespace InTouch
                 FlatStyle = FlatStyle.Flat,
                 Cursor = Cursors.Hand,
                 AutoSize = false,
-                Size = new Size(sz.Width + 22, sz.Height + 12),
-                Padding = new Padding(8, 3, 8, 3)
+                Size = new Size(sz.Width + 32, sz.Height + 14),
+                Padding = Padding.Empty
             };
             btn.FlatAppearance.BorderColor = Color.FromArgb(60, 60, 60);
             btn.FlatAppearance.BorderSize = 1;
@@ -146,7 +153,7 @@ namespace InTouch
             {
                 Size = new Size(panelW, panelH),
                 Location = new Point((screenW - panelW) / 2, (screenH - panelH) / 2),
-                BackColor = Color.FromArgb(240, 24, 24, 24),
+                BackColor = Color.FromArgb(24, 24, 24),
                 BorderStyle = BorderStyle.None
             };
 
@@ -331,6 +338,9 @@ namespace InTouch
             private readonly record struct TouchMark(int ScreenX, int ScreenY, float RawX, float RawY, long Tick, TouchEventKind Kind, int FingerID);
             private readonly record struct LogEntry(string Text, long Tick, bool IsTap);
 
+            /// <summary>When true, skip heavy canvas repainting to avoid flicker under the settings overlay.</summary>
+            public bool OverlayVisible { get; set; }
+
             private static readonly Color[] FingerColors =
             {
                 Color.FromArgb(0, 220, 255),    // cyan    — finger 0
@@ -361,7 +371,8 @@ namespace InTouch
                     _log.RemoveAll(l => l.Tick < cutoff);
                     if (_marks.Count == 0 && _log.Count == 0)
                         _timer.Stop();
-                    Invalidate();
+                    if (!OverlayVisible)
+                        Invalidate();
                 };
             }
 
