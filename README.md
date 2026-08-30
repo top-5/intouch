@@ -77,6 +77,21 @@ Opening **Settings...** from the tray launches a fullscreen dark canvas:
 - **Settings overlay** — centered panel with sliders for tap duration (50–800ms), drag threshold (0.1–5.0%), and a ripple toggle. Changes apply instantly.
 - **Keyboard** — Escape closes the screen (or dismisses the settings overlay first).
 
+## Recommended Wacom Center Setup
+
+For the cleanest tap-to-click experience, **disable "Tap to click"** in the Wacom Center
+application:
+
+1. Open **Wacom Center**
+2. Select your tablet → **Basic gestures** tab
+3. Uncheck **Tap to click**
+
+This prevents the Wacom driver from injecting its own mouse click on every touch-down,
+which would otherwise interfere with InTouch's own click injection and cause taps to
+be misinterpreted as drags/selections in some applications.
+
+With this setting disabled, InTouch handles all tap-to-click and drag behavior itself.
+
 ## How It Works
 
 The app uses the **WacomMTDN** wrapper (vendored from `external/wacom-device-kit-windows`)

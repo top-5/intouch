@@ -199,12 +199,13 @@ namespace InTouch
                                 //
                                 // The Wacom driver (Observer mode) already injected a
                                 // LEFTDOWN into the input queue before this callback.
-                                // Cancel it immediately so apps don't start a selection.
-                                CancelDriverPress();
+                                // Cancel it at the EXACT same position so apps see a
+                                // zero-distance down+up (no drag).
                                 _state = TouchState.Pending;
                                 _activeFingerId = finger.FingerID;
                                 _downRawX = finger.X;
                                 _downRawY = finger.Y;
+                                CancelDriverPress(absX, absY);
                                 _downTick = Environment.TickCount64;
                                 Log.Info($"DOWN fid={finger.FingerID} raw=({finger.X:F4},{finger.Y:F4}) scr=({sx},{sy}) → Pending");
                             }
@@ -217,30 +218,33 @@ namespace InTouch
                                 // Finger already in contact but not tracked (e.g. after the
                                 // active finger released, or SDK missed the Down event,
                                 // or Confidence toggled false→true mid-touch). Adopt it.
-                                CancelDriverPress();
                                 _state = TouchState.Pending;
                                 _activeFingerId = finger.FingerID;
                                 _downRawX = finger.X;
                                 _downRawY = finger.Y;
                                 _downTick = Environment.TickCount64;
+                                CancelDriverPress(absX, absY);
                                 Log.Info($"ADOPT fid={finger.FingerID} raw=({finger.X:F4},{finger.Y:F4}) scr=({sx},{sy}) → Pending");
                             }
                             else if (_state == TouchState.Pending && isActive)
                             {
                                 float dist = RawDistance(finger.X, finger.Y, _downRawX, _downRawY);
-                                // Only enter drag when movement is clearly intentional
-                                // (well beyond tap jitter). DragThreshold is large enough
-                                // that normal tap jitter never triggers it.
                                 if (Mode == TouchMode.MoveTapDrag && dist >= DragThreshold)
                                 {
-                                    var (startSx, startSy) = ToScreen(_downRawX, _downRawY, _isDisplayTablet);
-                                    var (startAbsX, startAbsY) = ToAbsolute(startSx, startSy);
-                                    InjectButtonDown(startAbsX, startAbsY);
-                                    InjectMove(absX, absY);
+                                    // Movement clearly intentional — start a drag.
+                                    // Button down at CURRENT position (where cursor already
+                                    // is from InjectMove during Pending), not the original
+                                    // down point, to avoid a snap-back line segment.
+                                    InjectButtonDown(absX, absY);
                                     _state = TouchState.Dragging;
                                     Log.Info($"DRAG fid={finger.FingerID} dist={dist:F4} → Dragging");
                                 }
-                                // else: movement below drag threshold, don't move cursor
+                                else
+                                {
+                                    // Below drag threshold — still move the cursor so
+                                    // the user gets visual feedback, just no button press.
+                                    InjectMove(absX, absY);
+                                }
                             }
                             else if (_state == TouchState.Dragging && isActive)
                             {
@@ -369,16 +373,20 @@ namespace InTouch
         }
 
         /// <summary>
-        /// Send a LEFTUP to cancel the Wacom driver's LEFTDOWN.
-        /// In Observer mode the driver injects its own mouse press on touch-down;
-        /// we must cancel it immediately so apps don't interpret it as a drag.
-        /// Harmless if the button is already up.
+        /// Send a LEFTUP at the given absolute position to cancel the Wacom
+        /// driver's LEFTDOWN. Position MUST match the driver's down point so
+        /// apps see a zero-distance press+release (no drag). Harmless if the
+        /// button is already up.
         /// </summary>
-        private static void CancelDriverPress()
+        private static void CancelDriverPress(int absX, int absY)
         {
             var input = new NativeMethods.INPUT[1];
             input[0].type = NativeMethods.INPUT_MOUSE;
-            input[0].mi.dwFlags = NativeMethods.MOUSEEVENTF_LEFTUP;
+            input[0].mi.dx = absX;
+            input[0].mi.dy = absY;
+            input[0].mi.dwFlags = NativeMethods.MOUSEEVENTF_ABSOLUTE
+                                | NativeMethods.MOUSEEVENTF_MOVE
+                                | NativeMethods.MOUSEEVENTF_LEFTUP;
             NativeMethods.SendInput(1, input, Marshal.SizeOf<NativeMethods.INPUT>());
         }
 
@@ -386,10 +394,14 @@ namespace InTouch
         {
             int size = Marshal.SizeOf<NativeMethods.INPUT>();
 
-            // Cancel any driver-injected LEFTDOWN that may still be held.
+            // Cancel any driver-injected LEFTDOWN at the same position.
             var cancel = new NativeMethods.INPUT[1];
             cancel[0].type = NativeMethods.INPUT_MOUSE;
-            cancel[0].mi.dwFlags = NativeMethods.MOUSEEVENTF_LEFTUP;
+            cancel[0].mi.dx = absX;
+            cancel[0].mi.dy = absY;
+            cancel[0].mi.dwFlags = NativeMethods.MOUSEEVENTF_ABSOLUTE
+                                 | NativeMethods.MOUSEEVENTF_MOVE
+                                 | NativeMethods.MOUSEEVENTF_LEFTUP;
             NativeMethods.SendInput(1, cancel, size);
 
             // LEFTDOWN + LEFTUP both at the EXACT same absolute position,
