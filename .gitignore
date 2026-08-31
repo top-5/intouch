@@ -8,3 +8,7 @@ publish/
 # Build artifacts (keep the directory via .gitkeep)
 artifacts/*
 !artifacts/.gitkeep
+
+# vendored external SDK checkouts (nested repos)
+external/sdk-for-devices-win-classic/
+external/wacom-device-kit-windows/
